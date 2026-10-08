@@ -1,13 +1,28 @@
 
-name: Test ZARA Access
+name: ZARA Stock Monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      test_email:
+        description: "Send a Gmail test email"
+        type: boolean
+        default: true
+
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zara-stock-monitor
+  cancel-in-progress: false
 
 jobs:
-  test:
+  monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -19,5 +34,20 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Test ZARA
+      - name: Check ZARA and test Gmail
+        env:
+          BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TEST_EMAIL: ${{ inputs.test_email && 'true' || 'false' }}
         run: python test_zara.py
+
+      - name: Upload HTML for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zara-response
+          path: zara_response.html
+          retention-days: 1
+          if-no-files-found: ignore
