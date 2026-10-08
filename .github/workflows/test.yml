@@ -7,7 +7,7 @@ on:
       test_email:
         description: "Send a Gmail test email"
         type: boolean
-        default: true
+        default: false
 
   schedule:
     - cron: "*/5 * * * *"
@@ -32,9 +32,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4
 
-      - name: Check ZARA and test Gmail
+      - name: Restore previous stock state
+        uses: actions/cache/restore@v4
+        with:
+          path: stock_state.json
+          key: zara-stock-${{ github.run_id }}
+          restore-keys: |
+            zara-stock-
+
+      - name: Check ZARA stock
         env:
           BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
@@ -43,11 +51,9 @@ jobs:
           TEST_EMAIL: ${{ inputs.test_email && 'true' || 'false' }}
         run: python test_zara.py
 
-      - name: Upload HTML for debugging
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Save updated stock state
+        if: success()
+        uses: actions/cache/save@v4
         with:
-          name: zara-response
-          path: zara_response.html
-          retention-days: 1
-          if-no-files-found: ignore
+          path: stock_state.json
+          key: zara-stock-${{ github.run_id }}
